@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 手机监控 - 桌面查看器</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a2e;
+            --surface2: #16213e;
+            --primary: #4fc3f7;
+            --primary-dim: rgba(79, 195, 247, 0.15);
+            --accent: #81c784;
+            --warn: #ffb74d;
+            --danger: #e57373;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --border: #2a2a4a;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ===== Header ===== */
+        .header {
+            background: var(--surface);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online { background: var(--accent); }
+        .status-dot.offline { background: var(--danger); animation: none; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+
+        .header-stats span { white-space: nowrap; }
+
+        /* ===== Layout ===== */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 16px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header .badge {
+            background: var(--primary-dim);
+            color: var(--primary);
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .panel-body {
+            padding: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        /* ===== Screen Stream ===== */
+        .screen-panel {
+            grid-column: 1 / -1;
+        }
+
+        .screen-container {
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            max-height: 85vh;
+            overflow: hidden;
+        }
+
+        .screen-container img {
+            max-width: 100%;
+            max-height: 85vh;
+            object-fit: contain;
+            display: block;
+        }
+
+        .screen-container .placeholder {
+            color: var(--text-dim);
+            font-size: 16px;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .screen-container .placeholder .icon { font-size: 48px; margin-bottom: 12px; }
+
+        .screen-overlay-info {
+            position: absolute;
+            bottom: 8px;
+            right: 12px;
+            background: rgba(0,0,0,0.7);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        /* ===== Control Bar ===== */
+        .control-bar {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 0;
+        }
+
+        .control-bar .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .control-bar .btn:hover {
+            background: var(--surface);
+            border-color: var(--primary);
+        }
+
+        .control-bar .btn.active {
+            background: var(--primary-dim);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .control-bar .btn.danger:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .control-bar .fps-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .control-bar .fps-control label {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .control-bar .fps-control input {
+            width: 100px;
+        }
+
+        /* ===== Chat / Notification ===== */
+        .message-list { font-size: 13px; }
+
+        .message-item {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .message-item:hover { background: rgba(255,255,255,0.03); }
+        .message-item:last-child { border-bottom: none; }
+
+        .message-item .app-badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 6px;
+        }
+
+        .app-wechat { background: #1a5c2a; color: #7cfc00; }
+        .app-qq { background: #1a3a5c; color: #64b5f6; }
+        .app-sms { background: #5c3a1a; color: #ffb74d; }
+        .app-other { background: #333; color: #aaa; }
+
+        .message-item .msg-time {
+            font-size: 11px;
+            color: var(--text-dim);
+            float: right;
+        }
+
+        .message-item .msg-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .message-item .msg-app { font-weight: 600; font-size: 12px; }
+
+        .message-item .msg-content {
+            color: var(--text-dim);
+            word-break: break-all;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .message-item .msg-content:hover {
+            color: var(--text);
+        }
+
+        /* Notification-specific */
+        .notif-item .msg-header { color: var(--warn); }
+        .notif-item .msg-text {
+            color: var(--text-dim);
+            word-break: break-all;
+        }
+
+        /* ===== Empty State ===== */
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+
+        /* ===== Status panel ===== */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .status-item {
+            background: var(--surface2);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-item .label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+        .status-item .value { font-size: 14px; font-weight: 600; }
+
+        /* ===== Scrollbar ===== */
+        .panel-body::-webkit-scrollbar { width: 4px; }
+        .panel-body::-webkit-scrollbar-track { background: transparent; }
+        .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* ===== Expanded Chat View ===== */
+        .chat-detail-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .chat-detail-box {
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .chat-detail-box .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .chat-detail-box pre {
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text);
+            margin-top: 12px;
+        }
+
+        .chat-detail-box .detail-time {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; padding: 8px; }
+            .header { flex-direction: column; gap: 8px; align-items: flex-start; }
+            .header-stats { flex-wrap: wrap; gap: 8px; }
+            .control-bar .fps-control { margin-left: 0; width: 100%; }
+            .status-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="header">
+    <div class="header-left">
+        <span class="status-dot offline" id="statusDot"></span>
+        <span class="header-title">📱 手机监控</span>
+    </div>
+    <div class="header-stats">
+        <span id="statusPhone">📱 未连接</span>
+        <span id="statusScreen">📺 屏幕: 关</span>
+        <span id="statusChat">💬 聊天: 关</span>
+        <span id="statusNotif">🔔 通知: 关</span>
+        <span id="statusClients">👥 0 连接</span>
+        <span id="statusFps">⚡ 0 FPS</span>
+    </div>
+</header>
+
+<!-- ============ Control Bar ============ -->
+<div class="container" style="padding-bottom: 0;">
+    <div class="control-bar">
+        <button class="btn" id="btnStartScreen" onclick="sendCommand('start_screen_capture')">▶️ 启动采集</button>
+        <button class="btn danger" id="btnStopScreen" onclick="sendCommand('stop_screen_capture')">⏹️ 停止采集</button>
+        <button class="btn" onclick="sendCommand('start_chat_monitor')">💬 开启聊天</button>
+        <button class="btn" onclick="sendCommand('stop_chat_monitor')">💬 关闭聊天</button>
+        <button class="btn" onclick="sendCommand('request_status')">📊 刷新状态</button>
+        <button class="btn danger" onclick="clearChat()">🗑️ 清空聊天</button>
+        <button class="btn danger" onclick="clearNotifications()">🗑️ 清空通知</button>
+        <div class="fps-control">
+            <label>FPS 限制:</label>
+            <select id="fpsLimit" onchange="updateFpsLimit()">
+                <option value="1">1</option>
+                <option value="3" selected>3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="0">无限制</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- ============ Main Content ============ -->
+<div class="container">
+
+    <!-- 屏幕画面（跨两列） -->
+    <div class="panel screen-panel">
+        <div class="panel-header">
+            <span>📺 屏幕画面</span>
+            <span class="badge" id="frameInfo">等待中...</span>
+        </div>
+        <div class="screen-container" id="screenContainer">
+            <div class="placeholder" id="screenPlaceholder">
+                <div class="icon">📱</div>
+                <div>等待手机连接...</div>
+                <div style="font-size: 13px; margin-top: 8px; color: #666;">
+                    手机端设置: ws://你的电脑IP:9090/monitor
+                </div>
+            </div>
+            <img id="screenImage" style="display:none;" alt="屏幕画面" />
+            <div class="screen-overlay-info" id="screenInfo"></div>
+        </div>
+    </div>
+
+    <!-- 聊天记录 -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>💬 聊天记录</span>
+            <span class="badge" id="chatCount">0</span>
+        </div>
+        <div class="panel-body" id="chatPanel">
+            <div class="empty-state">
+                <div class="icon">💬</div>
+                <div>暂无聊天记录</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知 -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>🔔 实时通知</span>
+            <span class="badge" id="notifCount">0</span>
+        </div>
+        <div class="panel-body" id="notifPanel">
+            <div class="empty-state">
+                <div class="icon">🔔</div>
+                <div>暂无通知</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 连接状态 -->
+    <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-header">
+            <span>📊 系统状态</span>
+            <span class="badge" id="statusBadge">实时</span>
+        </div>
+        <div class="panel-body">
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="label">手机连接</div>
+                    <div class="value" id="sPhone">❌ 未连接</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">屏幕采集</div>
+                    <div class="value" id="sScreen">⏹️ 停止</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">聊天监控</div>
+                    <div class="value" id="sChat">⏹️ 停止</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">通知监听</div>
+                    <div class="value" id="sNotif">⏹️ 停止</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ Chat Detail Modal ============ -->
+<div id="chatDetail" class="chat-detail-overlay" style="display:none;" onclick="closeChatDetail(event)">
+    <div class="chat-detail-box" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeChatDetail()">✕</button>
+        <h3 id="detailApp" style="margin-bottom: 8px;"></h3>
+        <div class="detail-time" id="detailTime"></div>
+        <pre id="detailContent"></pre>
+    </div>
+</div>
+
+<script>
+// ============ 状态 ============
+const state = {
+    lastFrameTime: 0,
+    frameCount: 0,
+    fps: 0,
+    fpsTimer: null,
+    lastSecond: Date.now(),
+    frameTimestamps: [],
+    chatMessages: [],
+    notifications: []
+};
+
+// ============ SSE 连接 ============
+const eventSource = new EventSource('/events');
+
+eventSource.onmessage = function(event) {
+    try {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+    } catch (e) {
+        console.error('解析SSE消息失败:', e);
+    }
+};
+
+eventSource.onerror = function() {
+    document.getElementById('statusDot').className = 'status-dot offline';
+    document.getElementById('statusPhone').textContent = '📱 连接中...';
+};
+
+// ============ 消息处理 ============
+function handleMessage(msg) {
+    switch (msg.type) {
+        case 'connected':
+            updateConnectionStatus(msg.data);
+            break;
+        case 'screen_frame':
+            handleScreenFrame(msg.data);
+            break;
+        case 'chat_message':
+            handleChatMessage(msg.data);
+            break;
+        case 'notification':
+            handleNotification(msg.data);
+            break;
+        case 'system_status':
+            updateSystemStatus(msg.data);
+            break;
+        case 'connection_status':
+            updateConnectionStatus(msg.data);
+            break;
+        case 'chat_cleared':
+            clearChatUI();
+            break;
+        case 'notifications_cleared':
+            clearNotifUI();
+            break;
+    }
+}
+
+// ============ 屏幕画面处理 ============
+let lastFrameProcessed = 0;
+
+function handleScreenFrame(data) {
+    const fpsLimit = parseInt(document.getElementById('fpsLimit').value);
+    const now = Date.now();
+
+    // FPS 限制
+    if (fpsLimit > 0 && (now - lastFrameProcessed) < (1000 / fpsLimit)) {
+        return;
+    }
+    lastFrameProcessed = now;
+
+    const img = document.getElementById('screenImage');
+    const placeholder = document.getElementById('screenPlaceholder');
+
+    img.src = 'data:image/jpeg;base64,' + data.imageDataBase64;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+
+    // FPS 计算
+    state.frameCount++;
+    state.frameTimestamps.push(now);
+    if (state.frameTimestamps.length > 30) state.frameTimestamps.shift();
+
+    // 每秒更新 FPS
+    const lastSec = state.frameTimestamps.filter(t => now - t < 1000).length;
+    document.getElementById('statusFps').textContent = `⚡ ${lastSec} FPS`;
+
+    // 帧信息
+    document.getElementById('frameInfo').textContent =
+        `第 ${data.frameNumber || state.frameCount} 帧 | ${data.width}x${data.height}`;
+
+    document.getElementById('screenInfo').textContent =
+        `帧 #${data.frameNumber || state.frameCount} | ${data.width}x${data.height} | ${new Date(data.timestamp || now).toLocaleTimeString()}`;
+}
+
+// ============ 聊天记录处理 ============
+function handleChatMessage(data) {
+    state.chatMessages.push(data);
+    if (state.chatMessages.length > 200) state.chatMessages.shift();
+
+    renderChatMessages();
+    scrollToBottom('chatPanel');
+}
+
+function renderChatMessages() {
+    const panel = document.getElementById('chatPanel');
+    const count = document.getElementById('chatCount');
+    count.textContent = state.chatMessages.length;
+
+    if (state.chatMessages.length === 0) {
+        panel.innerHTML = '<div class="empty-state"><div class="icon">💬</div><div>暂无聊天记录</div></div>';
+        return;
+    }
+
+    let html = '<div class="message-list">';
+    // 显示最新的50条
+    const messages = state.chatMessages.slice(-50);
+    messages.forEach(msg => {
+        const appClass = getAppClass(msg.appName);
+        const time = new Date(msg.timestamp || msg.receivedAt).toLocaleTimeString();
+        const preview = (msg.screenText || '').substring(0, 200);
+
+        html += `
+            <div class="message-item" onclick="showChatDetail('${escapeHtml(msg.appName)}', '${escapeHtml(preview)}', '${time}')">
+                <div class="msg-header">
+                    <span class="app-badge ${appClass}">${escapeHtml(msg.appName)}</span>
+                    <span class="msg-app">${escapeHtml(msg.packageName || '')}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
+                <div class="msg-content">${escapeHtml(preview)}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    panel.innerHTML = html;
+}
+
+// ============ 通知处理 ============
+function handleNotification(data) {
+    state.notifications.push(data);
+    if (state.notifications.length > 100) state.notifications.shift();
+
+    renderNotifications();
+    scrollToBottom('notifPanel');
+}
+
+function renderNotifications() {
+    const panel = document.getElementById('notifPanel');
+    const count = document.getElementById('notifCount');
+    count.textContent = state.notifications.length;
+
+    if (state.notifications.length === 0) {
+        panel.innerHTML = '<div class="empty-state"><div class="icon">🔔</div><div>暂无通知</div></div>';
+        return;
+    }
+
+    let html = '<div class="message-list">';
+    const notifs = state.notifications.slice(-50);
+    notifs.forEach(n => {
+        const time = new Date(n.timestamp || n.receivedAt).toLocaleTimeString();
+        html += `
+            <div class="message-item notif-item">
+                <div class="msg-header">
+                    <span>🔔</span>
+                    <span class="msg-app">${escapeHtml(n.appName)}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
+                <div class="msg-text"><strong>${escapeHtml(n.title)}</strong>: ${escapeHtml(n.text)}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    panel.innerHTML = html;
+}
+
+// ============ 状态更新 ============
+function updateConnectionStatus(data) {
+    const dot = document.getElementById('statusDot');
+    const connected = data.phoneConnected || data.connectedClients > 0;
+
+    dot.className = 'status-dot ' + (connected ? 'online' : 'offline');
+    document.getElementById('statusPhone').textContent = connected ? '📱 已连接' : '📱 未连接';
+    document.getElementById('statusClients').textContent = `👥 ${data.connectedClients || 0} 连接`;
+}
+
+function updateSystemStatus(data) {
+    document.getElementById('sPhone').textContent = data.phoneConnected ? '🟢 已连接' : '🔴 未连接';
+    document.getElementById('sScreen').textContent = data.screenCaptureEnabled ? '🟢 运行中' : '⏹️ 停止';
+    document.getElementById('sChat').textContent = data.chatMonitorEnabled ? '🟢 运行中' : '⏹️ 停止';
+    document.getElementById('sNotif').textContent = data.notificationMonitorEnabled ? '🟢 运行中' : '⏹️ 停止';
+
+    document.getElementById('statusScreen').textContent = `📺 屏幕: ${data.screenCaptureEnabled ? '开' : '关'}`;
+    document.getElementById('statusChat').textContent = `💬 聊天: ${data.chatMonitorEnabled ? '开' : '关'}`;
+    document.getElementById('statusNotif').textContent = `🔔 通知: ${data.notificationMonitorEnabled ? '开' : '关'}`;
+}
+
+// ============ 命令发送 ============
+function sendCommand(action) {
+    fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+    }).then(r => r.json()).then(d => {
+        console.log('命令已发送:', action, d);
+    }).catch(e => {
+        console.error('发送命令失败:', e);
+    });
+}
+
+function clearChat() {
+    fetch('/api/clear-chat').then(() => {
+        state.chatMessages = [];
+        clearChatUI();
+    });
+}
+
+function clearNotifications() {
+    fetch('/api/clear-notifications').then(() => {
+        state.notifications = [];
+        clearNotifUI();
+    });
+}
+
+function clearChatUI() {
+    document.getElementById('chatPanel').innerHTML =
+        '<div class="empty-state"><div class="icon">💬</div><div>暂无聊天记录</div></div>';
+    document.getElementById('chatCount').textContent = '0';
+}
+
+function clearNotifUI() {
+    document.getElementById('notifPanel').innerHTML =
+        '<div class="empty-state"><div class="icon">🔔</div><div>暂无通知</div></div>';
+    document.getElementById('notifCount').textContent = '0';
+}
+
+function updateFpsLimit() {}
+
+// ============ 聊天详情弹窗 ============
+function showChatDetail(app, content, time) {
+    document.getElementById('detailApp').textContent = `💬 ${app} 聊天内容`;
+    document.getElementById('detailTime').textContent = `时间: ${time}`;
+    document.getElementById('detailContent').textContent = content;
+    document.getElementById('chatDetail').style.display = 'flex';
+}
+
+function closeChatDetail(e) {
+    if (!e || e.target.id === 'chatDetail') {
+        document.getElementById('chatDetail').style.display = 'none';
+    }
+}
+
+// ============ 工具函数 ============
+function getAppClass(appName) {
+    const name = (appName || '').toLowerCase();
+    if (name.includes('微信') || name.includes('wechat') || name.includes('mm')) return 'app-wechat';
+    if (name.includes('qq') || name.includes('tim')) return 'app-qq';
+    if (name.includes('短信') || name.includes('sms') || name.includes('mms')) return 'app-sms';
+    return 'app-other';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function scrollToBottom(id) {
+    const el = document.getElementById(id);
+    setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
+}
+
+// ============ 键盘快捷键 ============
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.getElementById('chatDetail').style.display = 'none';
+    }
+});
+
+console.log('📱 手机监控桌面查看器已加载');
+console.log('等待手机连接...');
+</script>
+</body>
+</html>

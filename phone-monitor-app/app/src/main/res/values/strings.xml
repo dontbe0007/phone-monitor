@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">手机监控</string>
+    <string name="accessibility_service_desc">用于读取屏幕上各应用的聊天记录内容并传输到电脑端</string>
+    <string name="notification_channel_name">监控服务</string>
+    <string name="notification_channel_desc">前台服务和后台运行通知</string>
+    <string name="screen_capture_channel_name">屏幕采集</string>
+    <string name="screen_capture_channel_desc">屏幕采集服务运行状态</string>
+</resources>
